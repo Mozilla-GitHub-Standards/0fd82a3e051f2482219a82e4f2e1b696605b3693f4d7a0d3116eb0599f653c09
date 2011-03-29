@@ -1,3 +1,4 @@
+{% import config %}
 <html>
 <head>
 <title>SmugMug Connector</title>
@@ -6,7 +7,7 @@
 <link rel="application-manifest" href="/smugmugconnector.webapp"></link>
 
 <script>
-{% if newCredentials %}
+{% if credentials %}
   window.localStorage.setItem("token", "{{ credentials["auth"]["token"]["_content"] }}");
   window.localStorage.setItem("usernsid", "{{ credentials["auth"]["user"]["nsid"] }}");
   window.localStorage.setItem("username", "{{ credentials["auth"]["user"]["username"] }}");
@@ -22,7 +23,7 @@ function disconnect() {
 
 function install() {
     navigator.apps.install({
-      url:"/flickr.webapp", 
+      url:"/smugmugconnector.webapp", 
       success: function() {
         $("#notinstalled").fadeOut($("#installed").fadeIn());
       },
@@ -52,18 +53,18 @@ function init() {
 <body onLoad="init();">
 
 <div class="container">
-<p>This is the Flickr Connector application.</p>
+<p>This is the {{config.PHOTO_SITE}} Connector application.</p>
 
 <p>It is a product of Mozilla Labs, and is experimental code.  It is intended
-to show how a Flickr integration with an Open Web Apps service framework
+to show how a {{config.PHOTO_SITE}} integration with an Open Web Apps service framework
 would work.</p>
 
-<p>Eventually we would hope that Flickr would host this code themselves;
+<p>Eventually we would hope that {{config.PHOTO_SITE}} would host this code themselves;
 for now, we ask users to authorize us to access their data on their behalf.
 </p>
 
 <div id="notinstalled">
-<p>The Flickr Connector application is <em>not installed.</em>  You will
+<p>The {{config.PHOTO_SITE}} Connector application is <em>not installed.</em>  You will
 need to install it into your browser before it can do anything interesting for you.</p>
 
 <p style="text-align:center">
@@ -72,22 +73,22 @@ need to install it into your browser before it can do anything interesting for y
 </div>
 
 <div id="installed">
-<p>The Flickr Connector application is installed.</p>
+<p>The {{config.PHOTO_SITE}} Connector application is installed.</p>
 </div>
 
 <div id="notconnected">
-<p>By connecting to Flickr, you will authorize your browser to connect
-to Flickr to share your photos with other websites and web applications.
+<p>By connecting to {{config.PHOTO_SITE}}, you will authorize your browser to connect
+to {{config.PHOTO_SITE}} to share your photos with other websites and web applications.
 You will still be asked to give your permission before anything is shared.
 </p>
 
 <div style="text-align:center">
-  <a class="button" href="/connect/start">Connect to Flickr</a>
+  <a class="button" href="/connect/start">Connect to {{config.PHOTO_SITE}}</a>
 </div>
 </div>
 
 <div id="connected">
-<p>This browser is connected to Flickr.  It may now share your photos with
+<p>This browser is connected to {{config.PHOTO_SITE}}.  It may now share your photos with
 other websites and web applications. You will still be asked to give your
 permission before anything is shared.
 </p>

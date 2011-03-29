@@ -1,1 +1,4 @@
-This is a simple little app to provide some service endpoints for Flickr.
+This is a simple little app to provide some service endpoints for SmugMug.
+
+Needs:
+- python-oauth2: https://github.com/simplegeo/python-oauth2

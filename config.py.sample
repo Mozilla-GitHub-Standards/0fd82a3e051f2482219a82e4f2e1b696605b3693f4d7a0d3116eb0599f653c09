@@ -1,5 +1,7 @@
 DOMAIN = "https://smugmugconnector.mozillalabs.com"
 
+PHOTO_SITE = "SmugMug"
+
 # Go to Smugmug and get an API key and secret
 KEYS = {
   "api_key": "",

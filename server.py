@@ -13,16 +13,19 @@ import urllib
 import cStringIO
 import mimetools
 
+# photo provider stuff
+import picasa as photosite
+
 class WebHandler(tornado.web.RequestHandler):
-  def get_current_user(self):
-    return self.get_secure_cookie("uid")
+  "base handler for this entire app"
 
   def get_error_html(self, status_code, **kwargs):
-    return "<html><title>Error!</title><style>.box {margin:16px;padding:8px;border:1px solid black;font:14pt Helvetica,arial} "\
-            ".small {text-align:right;color:#888;font:italic 8pt Helvetica;}</style>" \
-           "<body><div class='box'>We're sorry, something went wrong!<br><br>Perhaps "\
-           "you should <a href='/'>return to the front page.</a><br><br><div class='small'>%s %s</div></div>" % (
-          status_code, kwargs['exception'])
+    return """
+<html><title>Error!</title><style>.box {margin:16px;padding:8px;border:1px solid black;font:14pt Helvetica,arial}
+.small {text-align:right;color:#888;font:italic 8pt Helvetica;}</style>
+<body><div class='box'>We're sorry, something went wrong!<br><br>Perhaps
+you should <a href='/'>return to the front page.</a><br><br><div class='small'>%s %s</div></div>
+""" % (status_code, kwargs['exception'])
 
   def render_platform(self, file, templates=False, **kwargs):
     target_file = file
@@ -34,6 +37,7 @@ class WebHandler(tornado.web.RequestHandler):
     if self.get_argument("cloak", None):
       target_file = file + "_" + self.get_argument("cloak", None)
 
+    # is this dead code? Not sure what this is used for (Ben 2011-03-29)
     tmpl = None
     if templates:
       f = open(target_file + ".tmpl", "r")
@@ -57,7 +61,7 @@ class WebHandler(tornado.web.RequestHandler):
 class MainHandler(WebHandler):
   def get(self):
     self.set_header("X-XRDS-Location", "%s/xrds" % config.DOMAIN)
-    self.render_platform("index", newCredentials=False, credentials=None, errorMessage=None)
+    self.render_platform("index", credentials=None, errorMessage=None)
 
 class XRDSHandler(WebHandler):
   def get(self):
@@ -68,7 +72,7 @@ class XRDSHandler(WebHandler):
       """<URI>%s/login</URI>"""\
       """</Service></XRD></xrds:XRDS>""" % config.DOMAIN)
 
-class FlickrConnectDone(WebHandler):
+class ConnectDone(WebHandler):
   @tornado.web.asynchronous
   def get(self):
     frob = self.get_argument("frob", None)
@@ -103,16 +107,19 @@ class FlickrConnectDone(WebHandler):
       self.finish()
       logging.error(e)
 
-class FlickrConnect(WebHandler):
+class Connect(WebHandler):
+  @tornado.web.asynchronous
   def get(self):
-    # http://flickr.com/services/auth/?api_key=[api_key]&perms=[perms]&api_sig=[api_sig]
-    
-    sigval = config.KEYS["flickrSecret"] + "api_key" + config.KEYS["flickrAPIKey"] + "permswrite"
-    sighash = hashlib.md5(sigval).hexdigest()
-    url = "http://flickr.com/services/auth/?api_key=%s&perms=write&api_sig=%s" % (config.KEYS["flickrAPIKey"], sighash)
-    self.redirect(url)
+    photosite.generate_authorize_url(self, self.on_response, self.on_error)
 
-class GetFlickrPhotos(WebHandler):
+  def on_response(self, response):
+    self.redirect(response)
+  
+  def on_error(self, error):
+    self.write("error: " + error)
+    self.finish()
+
+class GetPhotos(WebHandler):
   @tornado.web.asynchronous
   def get(self):
     flickrUserId = self.get_argument("userid", None)
@@ -128,7 +135,7 @@ class GetFlickrPhotos(WebHandler):
     json = tornado.escape.json_decode(response.body)
     self.write("Got something: " + response.body)
 
-class GetPhotosets(WebHandler):
+class Photosets(WebHandler):
   @tornado.web.asynchronous
   def get(self):
     flickrUserId = self.get_argument("usernsid", None)
@@ -312,7 +319,7 @@ class Service_SendImage(WebHandler):
 class WebAppManifestHandler(WebHandler):
   def get(self):
     self.set_header("Content-Type", "application/x-web-app-manifest+json")
-    self.render("flickrconnector.webapp")
+    self.render("smugmugconnector.webapp")
 
 
 ##################################################################
@@ -321,7 +328,6 @@ class WebAppManifestHandler(WebHandler):
 
 settings = {
     "static_path": os.path.join(os.path.dirname(__file__), "static"),
-    "cookie_secret": config.cookie_secret,
     "login_url": "/login",
     "debug":True,
     "xheaders":True,
@@ -329,14 +335,14 @@ settings = {
 }
 
 application = tornado.web.Application([
-    (r"/flickr.webapp", WebAppManifestHandler),
-    (r"/connect/done", FlickrConnectDone),
-    (r"/connect/start", FlickrConnect),
-    (r"/get/photosets", GetPhotosets),
+    (r"/smugmugconnector.webapp", WebAppManifestHandler),
+    (r"/connect/done", ConnectDone),
+    (r"/connect/start", Connect),
+    (r"/get/photosets", Photosets),
     (r"/get/photos", GetPhotos),
     (r"/get/photosizes", GetPhotoSizes),
     (r"/post/photo", PostPhoto),
-    (r"/retrieve", GetFlickrPhotos),
+    (r"/retrieve", GetPhotos),
     (r"/service/getImage", Service_GetImage),
     (r"/service/sendImage", Service_SendImage),
     (r"/xrds", XRDSHandler),
@@ -347,9 +353,9 @@ application = tornado.web.Application([
 
 def run():
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(8410)
+    http_server.listen(8411)
     
-    print "Starting server on 8410"
+    print "Starting server on 8411"
     tornado.ioloop.IOLoop.instance().start()
 		
 import logging
