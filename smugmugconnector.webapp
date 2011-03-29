@@ -1,0 +1,21 @@
+{
+    "name":"SmugMug Connector",
+    "developer": {
+        "name":"Mozilla Labs Demo",
+        "url":"http://mozillalabs.com"
+    },
+    "description":"Connects your browser to SmugMug for web application integration.",
+    "icons":{
+        "32":"data:image/png;base64,AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAAAAAAEgAAABIAAAAEAAAAAAAAAAEAgQAjIqMAERCRADc2twAJCIkAKyqrABkYmQA/Pr8ABQSFACcmpwAVFJUAOzq7AA0MjQAvLq8AHRydAAAdwAAd3d3d3d3d3d3d7d7d7d7d3t32gDJd3d7d3kKXeBnt3d7MJd7fQ53e3eYd3d7ENd3dxJ3d3ewZ3e3HHd7d3EDt3cwYRERHgZ3e3EsERGiIXd3d3d7e3d3e3d3t3d3e3d3e3emd3oXe3d3d2q3uht3d3e3d3d3d3d3d3d7d3e3d7cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "experimental": {
+      "services": [
+        { 
+          "image.get": "/service/getImage"
+        },
+        {
+          "image.send": "/service/sendImage"
+        }
+      ]
+    }
+}
