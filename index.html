@@ -7,16 +7,16 @@
 <link rel="application-manifest" href="/smugmugconnector.webapp"></link>
 
 <script>
-{% if credentials %}
-  window.localStorage.setItem("token", "{{ credentials["auth"]["token"]["_content"] }}");
-  window.localStorage.setItem("usernsid", "{{ credentials["auth"]["user"]["nsid"] }}");
-  window.localStorage.setItem("username", "{{ credentials["auth"]["user"]["username"] }}");
+{% if user_info %}
+  window.localStorage.setItem("user_id", "{{ user_info["user_id"] }}");
+  window.localStorage.setItem("full_name", "{{ user_info["full_name"] }}");
+  window.localStorage.setItem("credentials", "{{ user_info["credentials"] }}");
 {% end %}
 
 function disconnect() {
-  window.localStorage.setItem("token", null);
-  window.localStorage.setItem("usernsid", null);
-  window.localStorage.setItem("username", null);
+  window.localStorage.setItem("user_id", null);
+  window.localStorage.setItem("full_name", null);
+  window.localStorage.setItem("credentials", null);
   $("#connected").hide();
   $("#notconnected").show();
 }
@@ -34,7 +34,7 @@ function install() {
 }
 
 function init() {
-  if (window.localStorage.getItem("token")) {
+  if (window.localStorage.getItem("user_id")) {
     $("#notconnected").hide();
   } else {
     $("#connected").hide();

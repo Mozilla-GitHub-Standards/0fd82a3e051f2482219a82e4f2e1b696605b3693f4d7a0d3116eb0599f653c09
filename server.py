@@ -12,6 +12,7 @@ import config
 import urllib
 import cStringIO
 import mimetools
+import simplejson
 
 # photo provider stuff
 import picasa as photosite
@@ -61,7 +62,7 @@ you should <a href='/'>return to the front page.</a><br><br><div class='small'>%
 class MainHandler(WebHandler):
   def get(self):
     self.set_header("X-XRDS-Location", "%s/xrds" % config.DOMAIN)
-    self.render_platform("index", credentials=None, errorMessage=None)
+    self.render_platform("index", user_info=None, errorMessage=None)
 
 class XRDSHandler(WebHandler):
   def get(self):
@@ -72,52 +73,36 @@ class XRDSHandler(WebHandler):
       """<URI>%s/login</URI>"""\
       """</Service></XRD></xrds:XRDS>""" % config.DOMAIN)
 
-class ConnectDone(WebHandler):
-  @tornado.web.asynchronous
-  def get(self):
-    frob = self.get_argument("frob", None)
-    if not frob:
-      raise Exception("Failed Flickr authentication")
-    
-    sigval = config.KEYS["flickrSecret"] + "api_key" + config.KEYS["flickrAPIKey"] + "formatjson" + "frob" + frob + "methodflickr.auth.getTokennojsoncallback1"
-    #+ "formatjsonnojsoncallback1"
-    sighash = hashlib.md5(sigval).hexdigest()
-
-    url = "http://api.flickr.com/services/rest/?method=flickr.auth.getToken&api_key=" + config.KEYS["flickrAPIKey"] + "&frob=" + frob + "&format=json&nojsoncallback=1&api_sig=" + sighash
-    #+ "&format=json&nojsoncallback=1&api_sig=" + sighash
-    http = tornado.httpclient.AsyncHTTPClient()
-    http.fetch(url,  callback=self.on_response)
-
-  def on_response(self, response):
-    if response.error: raise tornado.web.HTTPError(500)
-    #json = tornado.escape.json_decode(response.body)
-
-    # response body looks like this:   {"auth":{"token":{"_content":"72157626196623223-9271de4a076fd149"}, "perms":{"_content":"read"}, 
-    # "user":{"nsid":"48465434@N07", "username":"michaelrhanson", "fullname":""}}, "stat":"ok"}
-    try:
-      result = json.loads(response.body)
-      if result["stat"] != "ok":
-        self.write("Whoops, sorry, something didn't work right.  There was an error returned by Flickr.")
-        self.finish()
-        logging.error(response.body)
-      else:
-        self.render_platform("index", newCredentials=True, credentials=result)
-    except Exception, e:
-      self.write("Whoops, sorry, something didn't work right.  There was an error in our application.")
-      self.finish()
-      logging.error(e)
-
 class Connect(WebHandler):
   @tornado.web.asynchronous
   def get(self):
     photosite.generate_authorize_url(self, self.on_response, self.on_error)
 
-  def on_response(self, response):
+  def on_response(self, request_token, response):
+    if request_token:
+      # a token to store for closing the connection loop
+      self.set_secure_cookie('request_token', simplejson.dumps(request_token))
+
     self.redirect(response)
   
   def on_error(self, error):
     self.write("error: " + error)
     self.finish()
+
+class ConnectDone(WebHandler):
+  @tornado.web.asynchronous
+  def get(self):
+    request_token = simplejson.loads(self.get_secure_cookie('request_token'))
+    photosite.complete_authorization(self, request_token, self.on_success, self.on_error)
+
+  def on_success(self, user_id, full_name, credentials):
+    self.render_platform("index", user_info={'user_id': user_id, 'full_name' : full_name, 'credentials' : credentials})
+  
+  def on_error(self, message):
+    self.write(message)
+    self.finish()
+
+
 
 class GetPhotos(WebHandler):
   @tornado.web.asynchronous
@@ -329,6 +314,7 @@ class WebAppManifestHandler(WebHandler):
 settings = {
     "static_path": os.path.join(os.path.dirname(__file__), "static"),
     "login_url": "/login",
+    "cookie_secret": config.COOKIE_SECRET,
     "debug":True,
     "xheaders":True,
 #    "xsrf_cookies": True,
