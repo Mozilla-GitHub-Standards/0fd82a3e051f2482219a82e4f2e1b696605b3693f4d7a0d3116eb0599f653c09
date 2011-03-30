@@ -1,4 +1,7 @@
-This is a simple little app to provide some service endpoints for SmugMug.
+This is a simple little app to provide some service endpoints for SmugMug/Picasa.
+
+NOT READY YET, this won't work for you, promised.
 
 Needs:
-- python-oauth2: https://github.com/simplegeo/python-oauth2
+- python-oauth2: https://github.com/benadida/python-oauth2
+(forked from https://github.com/simplegeo/python-oauth2)
