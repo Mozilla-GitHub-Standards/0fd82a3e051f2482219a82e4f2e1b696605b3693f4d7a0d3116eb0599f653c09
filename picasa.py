@@ -1,5 +1,5 @@
 """
-SmugMug-specific stuff for OpenWebApp Photo Connector
+Picasa-specific stuff for OpenWebApp Photo Connector
 
 exposes an interface that should be generalizable to Flickr, Picasa, etc.
 """

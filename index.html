@@ -4,7 +4,7 @@
 <title>{{config.PHOTO_SITE}} Connector</title>
 <script type="text/javascript" src="/static/js/jquery-1.4.4.min.js"></script>
 <link type="text/css" href="/static/css/style.css" rel="stylesheet" />
-<link rel="application-manifest" href="/smugmugconnector.webapp"></link>
+<link rel="application-manifest" href="/{{app_name}}.webapp"></link>
 
 <script>
 function disconnect() {
@@ -17,7 +17,7 @@ function disconnect() {
 
 function install() {
     navigator.apps.install({
-      url:"/smugmugconnector.webapp", 
+      url:"/{{app_name}}.webapp", 
       success: function() {
         $("#notinstalled").fadeOut($("#installed").fadeIn());
       },

@@ -106,7 +106,12 @@ function renderPhotosetThumbs(photoset)
 	      var photo_size = photo_get_size(photo, "thumbnail");
 	      var img = $("<img/>").attr({
 		      id:"photo" + photoset.domCounter + "_" + i,
-		      src:photo_size.url, width:photo_size.width, height:photo_size.height});
+		      src:photo_size.url});
+
+	      if (photo_size.width) {
+		  img = img.attr({width:photo_size.width, height:photo_size.height});
+	      }
+
 	      img.click(makeClickFn(photo, img));
 	      thumbs.append(img);
 	  });

@@ -14,8 +14,12 @@ import cStringIO
 import mimetools
 import simplejson
 
+# set up some other variables
+photosite_short_name = config.PHOTO_SITE.lower()
+app_name = photosite_short_name + "connector"
+
 # photo provider stuff
-import picasa as photosite
+photosite = __import__(photosite_short_name)
 
 class WebHandler(tornado.web.RequestHandler):
   "base handler for this entire app"
@@ -76,7 +80,7 @@ you should <a href='/'>return to the front page.</a><br><br><div class='small'>%
 class MainHandler(WebHandler):
   def get(self):
     self.set_header("X-XRDS-Location", "%s/xrds" % config.DOMAIN)
-    self.render_platform("index", errorMessage=None)
+    self.render_platform("index", app_name=app_name, errorMessage=None)
 
 class XRDSHandler(WebHandler):
   def get(self):
@@ -269,7 +273,7 @@ class Service_SendImage(WebHandler):
 class WebAppManifestHandler(WebHandler):
   def get(self):
     self.set_header("Content-Type", "application/x-web-app-manifest+json")
-    self.render("smugmugconnector.webapp")
+    self.render("%s.webapp" % app_name)
 
 
 ##################################################################
@@ -286,7 +290,7 @@ settings = {
 }
 
 application = tornado.web.Application([
-    (r"/smugmugconnector.webapp", WebAppManifestHandler),
+    (r"/%s.webapp" % app_name, WebAppManifestHandler),
     (r"/connect/done", ConnectDone),
     (r"/connect/start", Connect),
     (r"/get/photosets", Photosets),
