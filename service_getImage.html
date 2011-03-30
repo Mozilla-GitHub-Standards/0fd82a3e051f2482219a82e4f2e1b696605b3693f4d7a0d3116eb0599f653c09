@@ -1,6 +1,7 @@
+{% import config %}
 <html>
 <head>
-<title>Flickr Photo Picker</title>
+<title>{{config.PHOTO_SITE}} Photo Picker</title>
 <script type="text/javascript" src="/static/js/jschannel.js"></script>
 <script type="text/javascript" src="/static/js/jquery-1.4.4.min.js"></script>
 <link type="text/css" href="/static/css/style.css" rel="stylesheet" />
@@ -10,7 +11,7 @@ var gRequestArguments = null;
 var gSelectedPhoto;
 
 // XX need some way to message up to UA that "Okay" should be enabled
-chan = Channel.build({window: window.parent, origin: "*", scope: "http://localhost:8410/service/getImage"});
+chan = Channel.build({window: window.parent, origin: "*", scope: "http://localhost:8411/service/getImage"});
 
 chan.bind("image.get", function(t, args) {
   gRequestArguments = args;
@@ -42,11 +43,10 @@ chan.bind("confirm", function(t, args) {
   }
 });
 
-function load(url, args, cb)
-{
-  args.usernsid = window.localStorage.getItem("usernsid");
-  args.token = window.localStorage.getItem("token");
-  $.getJSON(url, args, cb);
+function load(url, args, cb) {
+    args.user_id = window.localStorage.getItem("user_id");
+    args.credentials = window.localStorage.getItem("credentials");
+    $.getJSON(url, args, cb);
 }
 
 function loadPhotoSets(cb)
@@ -56,7 +56,7 @@ function loadPhotoSets(cb)
 
 function loadPhotos(photosetID, cb)
 {
-  load("/get/photos", {photosetid:photosetID}, cb);
+  load("/get/photos", {photoset_id:photosetID}, cb);
 }
 
 function loadPhotoSizes(photoID, cb)
@@ -65,14 +65,24 @@ function loadPhotoSizes(photoID, cb)
 }
 
 function init() {
-
+    /*
+    loadPhotoSets(function(photosets) {
+	    loadPhotos(photosets[0].id, function(photos) {
+		    PHOTOS = photos;
+		    for (var i=0; i<5; i++) {
+			var thumbnail = $(photos[i].sizes).filter(function(i, size) {return size.size == 'small';})[0];
+			$('body').append('<img src="' + thumbnail.url + '" />');
+		    }
+		});
+	});
+    */
 }
 
 function gotPhotoSets(photosetData)
 {
-  gPhotoSets = photosetData.photosets.photoset;
-  gPhotoSetFetchQueue.push(gPhotoSets[0]);
-  startPhotosLoader();
+    gPhotoSets = photosetData;
+    gPhotoSetFetchQueue.push(gPhotoSets[0]);
+    startPhotosLoader();
 }
 
 function render(newSetID)
@@ -102,18 +112,22 @@ function makeClickFn(photo, img)
   }
 }
 
+function photo_get_size(photo, size) {
+    return $(photo.sizes).filter(function(i, size) {return size.size == 'small';})[0];
+}
+
 function renderPhotosetThumbs(photoset)
 {
   var thumbs = $("<div class='setThumbnails'/>");
   if (photoset.retrievedPhotosData) {
-    for (var j=0;j<photoset.retrievedPhotosData.photoset.photo.length;j++) {
-      var photo = photoset.retrievedPhotosData.photoset.photo[j];
-      photo.domID = "photo" + photoset.domCounter + "_" + j;
-      var img = $("<img/>").attr({id:"photo" + photoset.domCounter + "_" + j, src:photo.url_sq, width:photo.width_sq, height:photo.height_sq});
-
-      img.click(makeClickFn(photo, img));
-      thumbs.append(img);
-    }
+      $(photoset.retrievedPhotosData).each(function(i, photo) {
+	      var photo_size = photo_get_size(photo, "small");
+	      var img = $("<img/>").attr({
+		      id:"photo" + photoset.domCounter + "_" + i,
+		      src:photo_size.url, width:photo_size.width, height:photo_size.height});
+	      img.click(makeClickFn(photo, img));
+	      thumbs.append(img);
+	  });
   }
   $("#photoset" + photoset.domCounter).append(thumbs);
   thumbs.hide().fadeIn();

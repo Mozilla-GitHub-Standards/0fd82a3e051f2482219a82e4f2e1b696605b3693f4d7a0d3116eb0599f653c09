@@ -28,6 +28,20 @@ class WebHandler(tornado.web.RequestHandler):
 you should <a href='/'>return to the front page.</a><br><br><div class='small'>%s %s</div></div>
 """ % (status_code, kwargs['exception'])
 
+  def get_user_id_and_credentials(self):
+    user_id = self.get_argument("user_id", None)
+    credentials_json = self.get_argument("credentials", None)
+    if not user_id or not credentials_json:
+      raise Exception("missing user_id and credentials")
+
+    try:
+      credentials = simplejson.loads(credentials_json)
+    except:
+      import pdb; pdb.set_trace()
+      raise Exception("bad credentials -- JSON")
+      
+    return user_id, credentials
+    
   def render_platform(self, file, templates=False, **kwargs):
     target_file = file
 
@@ -62,7 +76,7 @@ you should <a href='/'>return to the front page.</a><br><br><div class='small'>%
 class MainHandler(WebHandler):
   def get(self):
     self.set_header("X-XRDS-Location", "%s/xrds" % config.DOMAIN)
-    self.render_platform("index", user_info=None, errorMessage=None)
+    self.render_platform("index", errorMessage=None)
 
 class XRDSHandler(WebHandler):
   def get(self):
@@ -96,91 +110,42 @@ class ConnectDone(WebHandler):
     photosite.complete_authorization(self, request_token, self.on_success, self.on_error)
 
   def on_success(self, user_id, full_name, credentials):
-    self.render_platform("index", user_info={'user_id': user_id, 'full_name' : full_name, 'credentials' : credentials})
+    self.render_platform("setcredentials", user_info={'user_id': user_id, 'full_name' : full_name, 'credentials' : simplejson.dumps(credentials)})
   
   def on_error(self, message):
     self.write(message)
     self.finish()
 
-
-
-class GetPhotos(WebHandler):
-  @tornado.web.asynchronous
-  def get(self):
-    flickrUserId = self.get_argument("userid", None)
-    if not flickrUserId:
-      raise Exception("Missing required flickrUserId")
-      
-    http = tornado.httpclient.AsyncHTTPClient()
-    url = "http://api.flickr.com/services/rest/?method=flickr.photosets.getList&api_key=" + config.KEYS["flickr"] + "&user_id=" + flickrUserid + "&format=json&nojsoncallback=1"
-    http.fetch(url,  callback=self.on_response)
-
-  def on_response(self, response):
-    if response.error: raise tornado.web.HTTPError(500)
-    json = tornado.escape.json_decode(response.body)
-    self.write("Got something: " + response.body)
-
 class Photosets(WebHandler):
   @tornado.web.asynchronous
   def get(self):
-    flickrUserId = self.get_argument("usernsid", None)
-    if not flickrUserId:
-      raise Exception("Missing required usernsid")
-    authToken = self.get_argument("token", None)
-    if not authToken:
-      raise Exception("Missing required token")
-      
-    http = tornado.httpclient.AsyncHTTPClient()
-    request = {
-      "auth_token":authToken,
-      "api_key": config.KEYS["flickrAPIKey"],
-      "method":"flickr.photosets.getList",
-      "user_id":flickrUserId,
-      "format":"json",
-      "nojsoncallback":1,
-    }
-    signature = self.sign_request(request)
-    request["api_sig"] = signature
-    req = ["%s=%s" % (key, request[key]) for key in request.keys()] # XX urlescape
-    url = "http://api.flickr.com/services/rest/?%s" % "&".join(req)
-    http.fetch(url,  callback=self.on_response)
+    user_id, credentials = self.get_user_id_and_credentials()
+    photosite.get_photosets(user_id, credentials, self.on_success, self.on_error)
 
-  def on_response(self, response):
-    if response.error: raise tornado.web.HTTPError(500)
-    json = tornado.escape.json_decode(response.body)
-    self.write(response.body)
+  def on_success(self, photosets):
+    self.write(simplejson.dumps(photosets))
     self.finish()
 
-class GetPhotos(WebHandler):
+  def on_error(self, message):
+    self.write("error: %s" % message)
+    self.finish()
+
+class Photos(WebHandler):
   @tornado.web.asynchronous
   def get(self):
-    photosetID = self.get_argument("photosetid", None)
-    if not photosetID:
+    user_id, credentials = self.get_user_id_and_credentials()
+    photoset_id = self.get_argument("photoset_id", None)
+    if not photoset_id:
       raise Exception("Missing required photosetid")
-    authToken = self.get_argument("token", None)
-    if not authToken:
-      raise Exception("Missing required token")
       
-    http = tornado.httpclient.AsyncHTTPClient()
-    request = {
-      "auth_token":authToken,
-      "api_key": config.KEYS["flickrAPIKey"],
-      "method":"flickr.photosets.getPhotos",
-      "photoset_id": photosetID,
-      "extras": "url_sq,url_t,url_s,url_m,url_z,url_l,url_o,icon_server,tags",
-      "format":"json",
-      "nojsoncallback":1,
-    }
-    signature = self.sign_request(request)
-    request["api_sig"] = signature
-    req = ["%s=%s" % (key, request[key]) for key in request.keys()] # XX urlescape
-    url = "http://api.flickr.com/services/rest/?%s" % "&".join(req)
-    http.fetch(url,  callback=self.on_response)
+    photosite.get_photos(user_id, credentials, photoset_id, self.on_success, self.on_error)
 
-  def on_response(self, response):
-    if response.error: raise tornado.web.HTTPError(500)
-    json = tornado.escape.json_decode(response.body)
-    self.write(response.body)
+  def on_success(self, photos):
+    self.write(simplejson.dumps(photos))
+    self.finish()
+
+  def on_error(self, message):
+    self.write("error: %s" % message)
     self.finish()
 
 
@@ -325,10 +290,9 @@ application = tornado.web.Application([
     (r"/connect/done", ConnectDone),
     (r"/connect/start", Connect),
     (r"/get/photosets", Photosets),
-    (r"/get/photos", GetPhotos),
+    (r"/get/photos", Photos),
     (r"/get/photosizes", GetPhotoSizes),
     (r"/post/photo", PostPhoto),
-    (r"/retrieve", GetPhotos),
     (r"/service/getImage", Service_GetImage),
     (r"/service/sendImage", Service_SendImage),
     (r"/xrds", XRDSHandler),

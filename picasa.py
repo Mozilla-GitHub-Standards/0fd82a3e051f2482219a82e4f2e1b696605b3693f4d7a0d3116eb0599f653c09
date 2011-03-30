@@ -8,6 +8,7 @@ import config
 import oauth2 as oauth
 import urlparse, urllib
 import tornado
+import simplejson
 
 REQUEST_TOKEN_URL = 'https://www.google.com/accounts/OAuthGetRequestToken'
 AUTHORIZE_URL = 'https://www.google.com/accounts/OAuthAuthorizeToken'
@@ -15,13 +16,44 @@ ACCESS_TOKEN_URL = 'https://www.google.com/accounts/OAuthGetAccessToken'
 
 CONSUMER = oauth.Consumer(config.KEYS['api_key'], config.KEYS['api_secret'])
 
-
-def _signed_request(method, url, params, api_key, api_secret, on_success, on_error):
+def _signed_request(method, url, params, oauth_extra_params, credentials, on_success, on_error):
     """
     sign a request and make it.
-    This is an internal method, it should not be called from outside of smugmug.py
+    This is an internal method, it should not be called from outside of this file
+    
+    url is a GET URL without parameters
+    params is a dictionary of parameters, either appended to the URL if a GET, or as a form if a POST
+
+    credentials is a dictionary of oauth_token and oauth_token_secret. It can be null.
+
+    The goal is to make this asynchronous at some point soon.
     """
-    pass
+
+    # do we need an OAuth token, or just the consumer?
+    if credentials:
+        token = oauth.Token(credentials['oauth_token'], credentials['oauth_token_secret'])
+        client = oauth.Client(CONSUMER, token)
+    else:
+        client = oauth.Client(CONSUMER)
+
+    full_url = url
+
+    # append to the URL if it's a GET, or set the body if it's a POST
+    if params:
+        encoded_params = urllib.urlencode(params)
+        if method == "GET":
+            body = ''
+            full_url += "?%s" % encoded_params
+        else:
+            body = encoded_params
+
+    resp, content = client.request(full_url, method, body = body, oauth_extra_params=oauth_extra_params)
+
+    if resp['status'] != '200':
+        on_error(content)
+    else:
+        on_success(content)
+
 
 def generate_authorize_url(web_handler, on_success, on_error):
     """
@@ -33,18 +65,17 @@ def generate_authorize_url(web_handler, on_success, on_error):
 
     this is asynchronous because of the oauth use case, which requires getting a request_token
     """
-    # FIXME: make this asynchronous!
-    client = oauth.Client(CONSUMER)
-    resp, content = client.request("%s?%s" % (REQUEST_TOKEN_URL, urllib.urlencode({'scope': 'https://picasaweb.google.com/data/'})) , "GET", oauth_extra_params = {'oauth_callback': 'http://localhost:8411/connect/done'})
 
-    if resp['status'] != '200':
-        on_error("unable to get a request token")
-        return
+    def internal_on_success(content):
+        request_token = dict(urlparse.parse_qsl(content))
+        authorize_url = "%s?oauth_token=%s" % (AUTHORIZE_URL, request_token['oauth_token'])
+        on_success(request_token, authorize_url)
 
-    # parse the request token and we are done
-    request_token = dict(urlparse.parse_qsl(content))
-    authorize_url = "%s?oauth_token=%s" % (AUTHORIZE_URL, request_token['oauth_token'])
-    on_success(request_token, authorize_url)
+    _signed_request("GET", url=REQUEST_TOKEN_URL, params={'scope': 'https://picasaweb.google.com/data/'},
+                    oauth_extra_params={'oauth_callback': 'http://localhost:8411/connect/done'},
+                    credentials = None,
+                    on_success = internal_on_success,
+                    on_error = lambda content: on_error("couldn't get a request token - %s" % content))
 
 def complete_authorization(web_handler, request_token, on_success, on_error):
     """
@@ -57,19 +88,17 @@ def complete_authorization(web_handler, request_token, on_success, on_error):
 
     on_error will be called with an error message
     """
-    # http = tornado.httpclient.AsyncHTTPClient()
-    # http.fetch(url,  callback=self.on_response)
-    token = oauth.Token(request_token['oauth_token'], request_token['oauth_token_secret'])
-    token.set_verifier(web_handler.get_argument('oauth_verifier'))
-    client = oauth.Client(CONSUMER, token)
-    resp, content = client.request(ACCESS_TOKEN_URL, "POST")
 
-    if resp['status'] != '200':
-        on_error("unable to get an access token")
-        return
+    def internal_on_success(content):
+        access_token = dict(urlparse.parse_qsl(content))
+        on_success('foo', 'Foo Bar', access_token)
 
-    access_token = dict(urlparse.parse_qsl(content))
-    on_success('foo', 'Foo Bar', access_token)
+    _signed_request("POST", url=ACCESS_TOKEN_URL, params={'oauth_verifier': web_handler.get_argument('oauth_verifier')},
+                    oauth_extra_params = None,
+                    credentials = request_token,
+                    on_success = internal_on_success,
+                    on_error = lambda content: on_error("couldn't get an access token %s" % content))
+
 
 def get_photosets(user_id, credentials, on_success, on_error):
     """
@@ -80,7 +109,23 @@ def get_photosets(user_id, credentials, on_success, on_error):
 
     on_error called with an error message
     """
-    return None
+
+    def internal_on_success(content):
+        photosets_feed = simplejson.loads(content)
+
+        photosets = [{'id': photoset['gphoto$id']['$t'],
+                      'name': photoset['gphoto$name']['$t'],
+                      'num_photos': photoset['gphoto$numphotos']['$t']} for photoset in photosets_feed['feed']['entry']]
+
+        # navigate to the part of the feed that is needed
+        on_success(photosets)
+
+    _signed_request("GET","https://picasaweb.google.com/data/feed/api/user/default", params={"alt":"json"},
+                    oauth_extra_params = None,
+                    credentials = credentials,
+                    on_success = internal_on_success,
+                    on_error = lambda content: on_error("couldn't get photosets: %s" % content))
+
 
 def get_photos(user_id, credentials, photoset_id, on_success, on_error):
     """
@@ -91,7 +136,53 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
 
     on_error is called with an error message
     """
-    return None
+
+    # higher value always first, doesn't matter if landscape or portrait
+    PICASA_SIZE_TAGS = {
+        '1600x1066' : 'medium',
+        '72x48' : 'thumbnail',
+        '144x96' : 'tiny',
+        '288x192' : 'small',
+        }
+    
+    def picasa_size_tag(photo_el):
+        first = max(photo_el['width'], photo_el['height'])
+        second = min(photo_el['width'], photo_el['height'])
+        return PICASA_SIZE_TAGS.get("%sx%s" % (first,second), 'width-%s' % photo_el['width'])
+        
+    def internal_on_success(content):
+        photo_feed = simplejson.loads(content)
+
+        photos = [{'id': photo['gphoto$id']['$t'],
+                   'name': photo['summary']['$t'],
+                   'description': photo['summary']['$t'],
+                   # combine the master and content and thumbnails
+                   'sizes': [{
+                        'size': 'master',
+                        'width': photo['gphoto$width']['$t'],
+                        'height': photo['gphoto$height']['$t'],
+                        'url': photo['content']['src']}] + [{
+                        'size': picasa_size_tag(content),
+                        'width': content['width'],
+                        'height': content['height'],
+                        'url' : content['url']
+                        } for content in photo['media$group']['media$content']] + [{
+                        'size': picasa_size_tag(thumbnail),
+                        'width': thumbnail['width'],
+                        'height': thumbnail['height'],
+                        'url' : thumbnail['url']
+                        } for thumbnail in photo['media$group']['media$thumbnail']]
+                   } for photo in photo_feed['feed']['entry']]
+        
+        # navigate to the part of the feed that is needed
+        on_success(photos)
+
+    _signed_request("GET","https://picasaweb.google.com/data/feed/api/user/default/albumid/%s" % photoset_id, params={"alt":"json"},
+                    oauth_extra_params = None,
+                    credentials = credentials,
+                    on_success = internal_on_success,
+                    on_error = lambda content: on_error("couldn't get photos: %s" % content))
+
 
 ##
 ## no write API yet

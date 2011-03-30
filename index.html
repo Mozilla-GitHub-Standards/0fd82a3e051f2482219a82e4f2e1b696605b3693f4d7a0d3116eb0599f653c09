@@ -1,18 +1,12 @@
 {% import config %}
 <html>
 <head>
-<title>SmugMug Connector</title>
+<title>{{config.PHOTO_SITE}} Connector</title>
 <script type="text/javascript" src="/static/js/jquery-1.4.4.min.js"></script>
 <link type="text/css" href="/static/css/style.css" rel="stylesheet" />
 <link rel="application-manifest" href="/smugmugconnector.webapp"></link>
 
 <script>
-{% if user_info %}
-  window.localStorage.setItem("user_id", "{{ user_info["user_id"] }}");
-  window.localStorage.setItem("full_name", "{{ user_info["full_name"] }}");
-  window.localStorage.setItem("credentials", "{{ user_info["credentials"] }}");
-{% end %}
-
 function disconnect() {
   window.localStorage.setItem("user_id", null);
   window.localStorage.setItem("full_name", null);
