@@ -74,7 +74,7 @@ def generate_authorize_url(web_handler, on_success, on_error):
         on_success(request_token, authorize_url)
 
     _signed_request("GET", url=REQUEST_TOKEN_URL, params=None,
-                    oauth_extra_params={'oauth_callback': 'http://localhost:8411/connect/done'},
+                    oauth_extra_params={'oauth_callback': 'http://localhost:8410/connect/done'},
                     credentials = None,
                     on_success = internal_on_success,
                     on_error = lambda content: on_error("couldn't get a request token - %s" % content))

@@ -96,12 +96,12 @@ class Connect(WebHandler):
   def get(self):
     photosite.generate_authorize_url(self, self.on_response, self.on_error)
 
-  def on_response(self, request_token, response):
+  def on_response(self, request_token, authorize_url):
     if request_token:
       # a token to store for closing the connection loop
       self.set_secure_cookie('request_token', simplejson.dumps(request_token))
 
-    self.redirect(response)
+    self.redirect(authorize_url)
   
   def on_error(self, error):
     self.write("error: " + error)
@@ -307,9 +307,9 @@ application = tornado.web.Application([
 
 def run():
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(8411)
+    http_server.listen(8410)
     
-    print "Starting server on 8411"
+    print "Starting server on 8410"
     tornado.ioloop.IOLoop.instance().start()
 		
 import logging

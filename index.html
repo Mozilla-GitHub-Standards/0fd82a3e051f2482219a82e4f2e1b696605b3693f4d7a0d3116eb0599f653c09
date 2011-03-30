@@ -18,10 +18,10 @@ function disconnect() {
 function install() {
     navigator.apps.install({
       url:"/{{app_name}}.webapp", 
-      success: function() {
+      onsuccess: function() {
         $("#notinstalled").fadeOut($("#installed").fadeIn());
       },
-      error: function() {
+      onerror: function() {
       
       }
     });
