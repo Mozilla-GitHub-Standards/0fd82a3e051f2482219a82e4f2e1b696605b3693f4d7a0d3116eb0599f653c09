@@ -48,8 +48,8 @@ chan.bind("confirm", function(t, args) {
 
 function post(url, args, cb)
 {
-  args.usernsid = window.localStorage.getItem("usernsid");
-  args.token = window.localStorage.getItem("token");
+  args.user_id = window.localStorage.getItem("user_id");
+  args.credentials = window.localStorage.getItem("credentials");
   $.post(url, args, cb);
 }
 

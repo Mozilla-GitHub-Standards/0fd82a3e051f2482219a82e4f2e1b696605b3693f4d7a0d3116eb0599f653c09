@@ -198,80 +198,26 @@ class GetPhotoSizes(WebHandler):
 class PostPhoto(WebHandler):
   @tornado.web.asynchronous
   def post(self):
-    try:
-      photo = self.get_argument("photo") #base64ed?
-      title = self.get_argument("title", None)
-      description = self.get_argument("description", None)
-      tags = self.get_argument("tags", None) # space-separated
-      # maybe hidden?
-      
-      authToken = self.get_argument("token")
-      
-      http = tornado.httpclient.AsyncHTTPClient()
-      request = {
-        "auth_token":authToken,
-        "api_key": config.KEYS["flickrAPIKey"],
-      }
-      if description: request["description"] = description
-      if title: request["title"] = title
-      if tags: request["tags"] = tags
-
-      signature = self.sign_request(request)
-      request["api_sig"] = signature
-      
-      photoFile = cStringIO.StringIO(base64.b64decode(photo));
-#      files = {"thefile": photoFile}
-      boundary, body = multipart_encode(request.items(), [ ("photo", "thefile.jpg", photoFile, "image/jpg" ) ])
-
-      headers = { "Content-Type": "multipart/form-data; boundary=" + boundary }
-
-      httpRequest = tornado.httpclient.HTTPRequest(
-        "http://api.flickr.com/services/upload/",
-        method = "POST",
-        headers = headers,
-        body = body
-      )
-      
-      http.fetch(httpRequest,  callback=self.on_response)
-    except Exception, e:
-      logging.exception(e)
-      raise tornado.web.HTTPError(500)
-
-  def on_response(self, response):
-    logging.error(response.body)
+    photo = self.get_argument("photo") #base64ed?
+    title = self.get_argument("title", None)
+    description = self.get_argument("description", None)
+    tags = self.get_argument("tags", None) # space-separated
     
-    if response.error: 
-      logging.error(response.error)
-      raise tornado.web.HTTPError(500)
+    user_id, credentials = self.get_user_id_and_credentials()
+
+    photosite.store_photo(user_id, credentials, photo, title, description, tags,
+                          on_success= self.on_success,
+                          on_error= self.on_error)
     
-    # Response is always XML
-    # TODO parse the XML. :)
-    #json = tornado.escape.json_decode(response.body)
-    self.write(response.body)
+
+  def on_success(self, response_xml):
+    self.write(response_xml)
     self.finish()
 
+  def on_error(self, message):
+    self.write("error: %s" % message)
+    self.finish()
 
-def multipart_encode(vars, files, boundary = None, buf = None):
-    if boundary is None:
-        boundary = mimetools.choose_boundary()
-    if buf is None:
-        buf = cStringIO.StringIO()
-    for(key, value) in vars:
-        buf.write('--%s\r\n' % boundary)
-        buf.write('Content-Disposition: form-data; name="%s"' % key)
-        buf.write('\r\n\r\n' + value + '\r\n')
-    for(name, filename, file, contenttype) in files:
-        file.seek(os.SEEK_END)
-        file_size = file.tell()
-        file.seek(os.SEEK_SET)
-        buf.write('--%s\r\n' % boundary)
-        buf.write('Content-Disposition: form-data; name="%s"; filename="%s"\r\n' % (name, filename))
-        buf.write('Content-Type: %s\r\n' % contenttype)
-        # buffer += 'Content-Length: %s\r\n' % file_size
-        buf.write('\r\n' + file.read() + '\r\n')
-    buf.write('--' + boundary + '--\r\n\r\n')
-    buf = buf.getvalue()
-    return boundary, buf
 
 class Service_GetImage(WebHandler):
   def get(self):

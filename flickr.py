@@ -9,8 +9,11 @@ import urlparse, urllib
 import tornado
 import simplejson
 import hashlib
-
+import cStringIO
 import logging
+import base64
+
+import utils
 
 def _sign_request(request):
     "now returns the full set of parameters ready for URL embedding"
@@ -27,7 +30,10 @@ def _sign_request(request):
       sigval += unicode(full_request[k])
     full_request['api_sig'] = hashlib.md5(sigval).hexdigest()
 
-    return urllib.urlencode(full_request)
+    return full_request, urllib.urlencode(full_request)
+
+def _sign_request_url_only(request):
+    return _sign_request(request)[1]
 
 def generate_authorize_url(web_handler, url_callback, on_success, on_error):
     """
@@ -46,7 +52,7 @@ def generate_authorize_url(web_handler, url_callback, on_success, on_error):
     # url_callback is ignored, it needs to be set in the Flickr app itself
 
     # no request token, so None
-    on_success(None,"http://flickr.com/services/auth/?%s" % _sign_request(request))
+    on_success(None,"http://flickr.com/services/auth/?%s" % _sign_request_url_only(request))
 
 
 def complete_authorization(web_handler, request_token, on_success, on_error):
@@ -73,7 +79,7 @@ def complete_authorization(web_handler, request_token, on_success, on_error):
         'nojsoncallback': "1"
         }
         
-    url = "http://api.flickr.com/services/rest/?%s" % _sign_request(request)
+    url = "http://api.flickr.com/services/rest/?%s" % _sign_request_url_only(request)
 
     def on_response(response):
         if response.error:
@@ -115,7 +121,7 @@ def get_photosets(user_id, credentials, on_success, on_error):
         'auth_token': credentials,
         }
         
-    url = "http://api.flickr.com/services/rest/?%s" % _sign_request(request)
+    url = "http://api.flickr.com/services/rest/?%s" % _sign_request_url_only(request)
 
     def on_response(response):
         if response.error:
@@ -154,7 +160,7 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
         'auth_token': credentials,
         }
         
-    url = "http://api.flickr.com/services/rest/?%s" % _sign_request(request)
+    url = "http://api.flickr.com/services/rest/?%s" % _sign_request_url_only(request)
 
     def on_response(response):
         if response.error:
@@ -199,9 +205,37 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
     http = tornado.httpclient.AsyncHTTPClient()
     http.fetch(url, callback=on_response)
 
+def store_photo(user_id, credentials, photo, title, description, tags, on_success, on_error):
+    photoFile = cStringIO.StringIO(base64.b64decode(photo));
 
+    request = {
+        "auth_token": credentials
+        }
 
-##
-## no write API yet
-##
+    if description: request["description"] = description
+    if title: request["title"] = title
+    if tags: request["tags"] = tags
 
+    full_request, full_request_urlencoded = _sign_request(request)
+
+    boundary, body = utils.multipart_encode(full_request.items(), [ ("photo", "thefile.jpg", photoFile, "image/jpg" ) ])
+
+    headers = { "Content-Type": "multipart/form-data; boundary=" + boundary }
+
+    httpRequest = tornado.httpclient.HTTPRequest(
+        "http://api.flickr.com/services/upload/",
+        method = "POST",
+        headers = headers,
+        body = body
+        )
+
+    def on_response(response):
+        if response.error:
+            on_error(response.error)
+            return
+        
+        on_success(response.body)
+
+    http = tornado.httpclient.AsyncHTTPClient()      
+    http.fetch(httpRequest, callback=on_response)
+    
