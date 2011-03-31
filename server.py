@@ -13,6 +13,7 @@ import cStringIO
 import mimetools
 import simplejson
 
+
 # search for server configuration (API keys and such)
 CONFIG_FILE_NAME = 'config.py'
 if os.path.exists(CONFIG_FILE_NAME):
