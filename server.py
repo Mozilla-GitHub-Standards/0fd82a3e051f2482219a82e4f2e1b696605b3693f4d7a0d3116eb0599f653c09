@@ -115,7 +115,7 @@ class ConnectDone(WebHandler):
     photosite.complete_authorization(self, request_token, self.on_success, self.on_error)
 
   def on_success(self, user_id, full_name, credentials):
-    self.render_platform("setcredentials", user_info={'user_id': user_id, 'full_name' : full_name, 'credentials' : simplejson.dumps(credentials)})
+    self.render_platform("setcredentials", user_info={'user_id': user_id, 'full_name' : full_name, 'credentials' : simplejson.dumps(credentials)}, app_name=APP_NAME)
   
   def on_error(self, message):
     self.write(message)

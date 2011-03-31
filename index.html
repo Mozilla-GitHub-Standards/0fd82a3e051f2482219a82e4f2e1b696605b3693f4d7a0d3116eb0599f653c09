@@ -8,43 +8,51 @@
 
 <script>
 function disconnect() {
-  window.localStorage.setItem("user_id", null);
-  window.localStorage.setItem("full_name", null);
-  window.localStorage.setItem("credentials", null);
+//  window.localStorage.setItem("user_id", null);
+//  window.localStorage.setItem("full_name", null);
+//  window.localStorage.setItem("credentials", null);
+  window.localStorage.clear();
   $("#connected").hide();
   $("#notconnected").show();
 }
 
-function install() {
-    navigator.apps.install({
-      url:"/{{app_name}}.webapp", 
-      onsuccess: function() {
-        $("#notinstalled").fadeOut($("#installed").fadeIn());
-      },
-      onerror: function() {
-      
-      }
-    });
+function get_credentials() {
+  if (window.localStorage.getItem("user_id")) { 
+    return {
+      'user_id': window.localStorage.getItem("user_id"),
+      'full_name': window.localStorage.getItem("full_name"),
+      'credentials': window.localStorage.getItem("credentials"),
+    }
+  } else {
+    return null;
+  }
 }
 
+function is_connected(cb) {
+  if (!get_credentials())
+    cb(false);
+
+  // is the app installed
+  navigator.apps.amInstalled(cb);
+}
+
+
 function init() {
-  if (window.localStorage.getItem("user_id")) {
-    $("#notconnected").hide();
-  } else {
-    $("#connected").hide();
-  }
-  // XX check installed
-  $("#installed").hide();
-  $("#notinstalled").hide();
-  navigator.apps.amInstalled(function(installed) {
-    if (installed) $("#installed").show();
-    else $("#notinstalled").show();
+  is_connected(function(connected_p) {
+    if (connected_p) {
+      $("#notinstalled").hide();
+    } else {
+      $("#installed").hide();
+    }
   });
 }
+
+$(document).ready(init);
+
 </script>
 </head>
 
-<body onLoad="init();">
+<body>
 
 <div class="container">
 <p>This is the {{config.PHOTO_SITE}} Connector application.</p>
@@ -61,34 +69,20 @@ for now, we ask users to authorize us to access their data on their behalf.
 <p>The {{config.PHOTO_SITE}} Connector application is <em>not installed.</em>  You will
 need to install it into your browser before it can do anything interesting for you.</p>
 
-<p style="text-align:center">
-  <a class="button" href="javascript:install()">Install Application</a>
-</p>
+<div style="text-align:center">
+  <a class="button" href="/connect/start">Connect to {{config.PHOTO_SITE}} and Install the App</a>
 </div>
+</div>
+
 
 <div id="installed">
-<p>The {{config.PHOTO_SITE}} Connector application is installed.</p>
-</div>
-
-<div id="notconnected">
-<p>By connecting to {{config.PHOTO_SITE}}, you will authorize your browser to connect
-to {{config.PHOTO_SITE}} to share your photos with other websites and web applications.
-You will still be asked to give your permission before anything is shared.
-</p>
-
-<div style="text-align:center">
-  <a class="button" href="/connect/start">Connect to {{config.PHOTO_SITE}}</a>
-</div>
-</div>
-
-<div id="connected">
-<p>This browser is connected to {{config.PHOTO_SITE}}.  It may now share your photos with
-other websites and web applications. You will still be asked to give your
-permission before anything is shared.
+<p>
+  The {{config.PHOTO_SITE}} Connector application is installed and configured.
 </p>
 
 <div style="text-align:center">
   <a class="button" href="javascript:disconnect()">Disconnect</a>
+</div>
 </div>
 </div>
 
