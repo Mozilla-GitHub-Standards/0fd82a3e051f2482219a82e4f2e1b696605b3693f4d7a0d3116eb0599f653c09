@@ -8,11 +8,21 @@ import os
 import base64
 import json
 import hashlib
-import config
 import urllib
 import cStringIO
 import mimetools
 import simplejson
+
+# search for server configuration (API keys and such)
+CONFIG_FILE_NAME = 'config.py'
+if os.path.exists(CONFIG_FILE_NAME):
+  import config
+elif os.path.exists(os.path.join("..", CONFIG_FILE_NAME)):
+  sys.path.append('..')
+  import config
+  sys.path.pop()
+else:
+  raise RuntimeError('no configuration file found: %s' % CONFIG_FILE_NAME)
 
 # photo provider stuff
 # dynamically import the right module
@@ -308,9 +318,9 @@ application = tornado.web.Application([
 
 def run():
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(8410)
+    http_server.listen(config.PORT)
     
-    print "Starting server on 8410"
+    print "Starting server on %s" % config.PORT
     tornado.ioloop.IOLoop.instance().start()
 		
 import logging
