@@ -57,7 +57,7 @@ def _signed_request(method, url, params, oauth_extra_params, credentials, on_suc
         on_success(content)
 
 
-def generate_authorize_url(web_handler, on_success, on_error):
+def generate_authorize_url(web_handler, url_callback, on_success, on_error):
     """
     When it's time to authorize a connection to a user's photo store,
     this function is called to generate the URL that the user's browser is sent to.
@@ -74,7 +74,7 @@ def generate_authorize_url(web_handler, on_success, on_error):
         on_success(request_token, authorize_url)
 
     _signed_request("GET", url=REQUEST_TOKEN_URL, params=None,
-                    oauth_extra_params={'oauth_callback': 'http://localhost:8410/connect/done'},
+                    oauth_extra_params={'oauth_callback': url_callback},
                     credentials = None,
                     on_success = internal_on_success,
                     on_error = lambda content: on_error("couldn't get a request token - %s" % content))

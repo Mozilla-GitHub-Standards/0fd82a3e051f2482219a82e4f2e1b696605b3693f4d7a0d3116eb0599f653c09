@@ -1,11 +1,23 @@
-DOMAIN = "https://smugmugconnector.mozillalabs.com"
 
 PHOTO_SITE = "SmugMug"
+#PHOTO_SITE = "Picasa"
+#PHOTO_SITE = "Flickr"
 
 COOKIE_SECRET = "REPLACE ME NOW"
 
+# these two don't necessarily match because
+# the first parameter (URL_BASE) should be the public-facing URL of the system
+# while PORT is the port locally bound by tornado
+URL_BASE = "http://localhost:8410"
+PORT= 8410
+
 # Go to Smugmug and get an API key and secret
 KEYS = {
-  "api_key": "",
-  "api_secret": ""
+    #smugmug or google
+    "api_key": "",
+    "api_secret": "",
+    
+    # flickr
+    "flickrSecret":"",
+    "flickrAPIKey":"",    
 }

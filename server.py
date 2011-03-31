@@ -14,12 +14,13 @@ import cStringIO
 import mimetools
 import simplejson
 
-# set up some other variables
-photosite_short_name = config.PHOTO_SITE.lower()
-app_name = photosite_short_name + "connector"
-
 # photo provider stuff
-photosite = __import__(photosite_short_name)
+# dynamically import the right module
+
+APP_NAME = config.PHOTO_SITE.lower() + "connector"
+DOMAIN = "https://%s.mozillalabs.com" % APP_NAME
+
+photosite = __import__(config.PHOTO_SITE.lower())
 
 class WebHandler(tornado.web.RequestHandler):
   "base handler for this entire app"
@@ -79,8 +80,8 @@ you should <a href='/'>return to the front page.</a><br><br><div class='small'>%
 # General, and user administration, handlers
 class MainHandler(WebHandler):
   def get(self):
-    self.set_header("X-XRDS-Location", "%s/xrds" % config.DOMAIN)
-    self.render_platform("index", app_name=app_name, errorMessage=None)
+    self.set_header("X-XRDS-Location", "%s/xrds" % DOMAIN)
+    self.render_platform("index", app_name=APP_NAME, errorMessage=None)
 
 class XRDSHandler(WebHandler):
   def get(self):
@@ -89,12 +90,12 @@ class XRDSHandler(WebHandler):
       """<xrds:XRDS xmlns:xrds="xri://$xrds" xmlns:openid="http://openid.net/xmlns/1.0" xmlns="xri://$xrd*($v*2.0)">"""\
       """<XRD><Service priority="1"><Type>https://specs.openid.net/auth/2.0/return_to</Type>"""\
       """<URI>%s/login</URI>"""\
-      """</Service></XRD></xrds:XRDS>""" % config.DOMAIN)
+      """</Service></XRD></xrds:XRDS>""" % DOMAIN)
 
 class Connect(WebHandler):
   @tornado.web.asynchronous
   def get(self):
-    photosite.generate_authorize_url(self, self.on_response, self.on_error)
+    photosite.generate_authorize_url(self, "%s/connect/done" % config.URL_BASE, self.on_response, self.on_error)
 
   def on_response(self, request_token, authorize_url):
     if request_token:
@@ -273,7 +274,7 @@ class Service_SendImage(WebHandler):
 class WebAppManifestHandler(WebHandler):
   def get(self):
     self.set_header("Content-Type", "application/x-web-app-manifest+json")
-    self.render("%s.webapp" % app_name)
+    self.render("%s.webapp" % APP_NAME)
 
 
 ##################################################################
@@ -290,7 +291,7 @@ settings = {
 }
 
 application = tornado.web.Application([
-    (r"/%s.webapp" % app_name, WebAppManifestHandler),
+    (r"/%s.webapp" % APP_NAME, WebAppManifestHandler),
     (r"/connect/done", ConnectDone),
     (r"/connect/start", Connect),
     (r"/get/photosets", Photosets),

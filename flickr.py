@@ -29,7 +29,7 @@ def _sign_request(request):
 
     return urllib.urlencode(full_request)
 
-def generate_authorize_url(web_handler, on_success, on_error):
+def generate_authorize_url(web_handler, url_callback, on_success, on_error):
     """
     When it's time to authorize a connection to a user's photo store,
     this function is called to generate the URL that the user's browser is sent to.
@@ -42,6 +42,8 @@ def generate_authorize_url(web_handler, on_success, on_error):
     request = {
         'perms' : "write",
         }
+
+    # url_callback is ignored, it needs to be set in the Flickr app itself
 
     # no request token, so None
     on_success(None,"http://flickr.com/services/auth/?%s" % _sign_request(request))
