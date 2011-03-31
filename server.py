@@ -4,7 +4,7 @@ import tornado.httpserver
 import tornado.auth
 import tornado.ioloop
 import tornado.web
-import os
+import os, sys
 import base64
 import json
 import hashlib
