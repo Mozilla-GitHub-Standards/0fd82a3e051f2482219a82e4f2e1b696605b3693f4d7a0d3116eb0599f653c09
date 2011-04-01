@@ -206,7 +206,7 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
     http.fetch(url, callback=on_response)
 
 def store_photo(user_id, credentials, photo, title, description, tags, on_success, on_error):
-    photoFile = cStringIO.StringIO(base64.b64decode(photo));
+    photoFile = cStringIO.StringIO(base64.b64decode(photo))
 
     request = {
         "auth_token": credentials

@@ -9,6 +9,10 @@ import oauth2 as oauth
 import urlparse, urllib
 import tornado
 import simplejson
+import cStringIO, base64
+import utils
+
+from xml.sax.saxutils import escape as xml_escape
 
 REQUEST_TOKEN_URL = 'https://www.google.com/accounts/OAuthGetRequestToken'
 AUTHORIZE_URL = 'https://www.google.com/accounts/OAuthAuthorizeToken'
@@ -16,13 +20,15 @@ ACCESS_TOKEN_URL = 'https://www.google.com/accounts/OAuthGetAccessToken'
 
 CONSUMER = oauth.Consumer(config.KEYS['api_key'], config.KEYS['api_secret'])
 
-def _signed_request(method, url, params, oauth_extra_params, credentials, on_success, on_error):
+def _signed_request(method, url, params, oauth_extra_params, credentials, on_success, on_error, headers={}):
     """
     sign a request and make it.
     This is an internal method, it should not be called from outside of this file
     
     url is a GET URL without parameters
     params is a dictionary of parameters, either appended to the URL if a GET, or as a form if a POST
+
+    if url is POST and params is a string, then treat it as raw body.
 
     credentials is a dictionary of oauth_token and oauth_token_secret. It can be null.
 
@@ -40,16 +46,25 @@ def _signed_request(method, url, params, oauth_extra_params, credentials, on_suc
 
     # append to the URL if it's a GET, or set the body if it's a POST
     if params:
-        encoded_params = urllib.urlencode(params)
-        if method == "GET":
-            body = ''
-            full_url += "?%s" % encoded_params
+        if type(params) == dict:
+            encoded_params = urllib.urlencode(params)
+            
+            if method == "GET":
+                body = ''
+                full_url += "?%s" % encoded_params
+            else:
+                body = encoded_params
         else:
-            body = encoded_params
+            if method == "GET":
+                raise Exception("on a GET, params must be a dictionary")
+            else:
+                body = params
+            
+    resp, content = client.request(full_url, method, body = body,
+                                   headers = headers,
+                                   oauth_extra_params=oauth_extra_params)
 
-    resp, content = client.request(full_url, method, body = body, oauth_extra_params=oauth_extra_params)
-
-    if resp['status'] != '200':
+    if resp['status'] not in ['200', '201', '202']:
         on_error(content)
     else:
         on_success(content)
@@ -183,8 +198,66 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
                     on_success = internal_on_success,
                     on_error = lambda content: on_error("couldn't get photos: %s" % content))
 
+def store_photo(user_id, credentials, photo, title, description, tags, on_success, on_error):
+    """
+    this will call on_success with a dictionary of the new image,
+    including 'id' and 'url'
+    """
+    # in smugmug, the base64-encoded photo is what we need to upload
+    def internal_on_success(content):
+        "it's XML, let's just pass it for now"
+        on_success(content)
+    
+    def internal_on_error(error):
+        import pdb; pdb.set_trace()
+        on_error("couldn't upload image: %s" % error)
 
-##
-## no write API yet
-##
+    def after_fetch_photosets(photosets):
+        # prepare a multipart-mime message
+        
+        # first the Atom description (FIXME: XML inline is kinda ugly)
+        metadata = """
+<entry xmlns='http://www.w3.org/2005/Atom'>
+  <title>%s</title>
+  <summary>%s</summary>
+  <category scheme="http://schemas.google.com/g/2005#kind"
+    term="http://schemas.google.com/photos/2007#photo"/>
+</entry>
+""" % (xml_escape(title), xml_escape(description))
+
+        # treat the photo as a file
+        photo_file = cStringIO.StringIO(base64.b64decode(photo))
+
+        boundary, body = utils.multipart_encode(
+            vars={},
+            vars_with_types= [("application/atom+xml", metadata)],
+            files= [("photo", "thefile.jpg", photo_file, "image/jpg")]
+            )
+
+        # prepend a bogus line, as per picasa spec (is this MIME?)
+        full_body = """
+Media multipart posting
+%s""" % body
+
+        headers = { "Content-Type": "multipart/related; boundary=" + boundary,
+                    "Content-Length": str(len(full_body)),
+                    "MIME-Version": "1.0",}
+
+        _signed_request("POST",
+                        "https://picasaweb.google.com/data/feed/api/user/default/albumid/%s" % photosets[0]['id'],
+                        params=full_body,
+                        oauth_extra_params = None,
+                        credentials = credentials,
+                        on_success = internal_on_success,
+                        on_error = internal_on_error,
+                        headers = headers)
+        
+    # for now we'll store in the first album
+    # FIXME: we should refactor this
+    get_photosets(user_id, credentials,
+                  on_success= after_fetch_photosets,
+                  on_error= lambda content: on_error("couldn't get photosets to upload image"))
+
+
+    
 
