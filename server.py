@@ -27,7 +27,7 @@ else:
 # photo provider stuff
 # dynamically import the right module
 
-APP_NAME = config.PHOTO_SITE.lower() + "connector"
+APP_NAME = config.PHOTO_SITE.lower() 
 DOMAIN = "https://%s.mozillalabs.com" % APP_NAME
 
 photosite = __import__(config.PHOTO_SITE.lower())
