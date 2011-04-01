@@ -1,7 +1,7 @@
 {% import config %}
 <html>
 <head>
-<title>Flickr Image Uploader</title>
+<title>{{config.PHOTO_SITE}} Image Uploader</title>
 <script type="text/javascript" src="/static/js/jschannel.js"></script>
 <script type="text/javascript" src="/static/js/jquery-1.4.4.min.js"></script>
 <link type="text/css" href="/static/css/style.css" rel="stylesheet" />
@@ -16,7 +16,9 @@ chan.bind("image.send", function(t, args) {
   try {
     gRequestArguments = args;
     if (!args.data) {
-        throw "missing photo";
+        if (!args.url) {
+           throw "missing photo";
+        }
     }
 
     renderPreview();
@@ -34,7 +36,13 @@ chan.bind("confirm", function(t, args) {
   
   // do the save...
   var call = {};
-  call.photo = gRequestArguments.data;
+
+  if (gRequestArguments.data) {
+    call.photo = gRequestArguments.data;
+  } else {
+    call.photo_url = gRequestArguments.url;
+  }
+
   call.title = $("#title").val();
   call.description = $("#description").val();
   call.tags = $("#tags").val();
@@ -65,7 +73,14 @@ $("#status").ajaxError(function() {
 
 function renderPreview()
 {
-  $("#preview").attr("src", "data:image/jpg;base64," + gRequestArguments.data);
+  var url;
+  if (gRequestArguments.data) {
+     url = "data:image/jpg;base64," + gRequestArguments.data;
+  } else {
+     url = gRequestArguments.url;
+  }
+
+  $("#preview").attr("src", url);
   
   if (gRequestArguments.title) $("#title").val(gRequestArguments.title);
   if (gRequestArguments.description) $("#description").val(gRequestArguments.description);

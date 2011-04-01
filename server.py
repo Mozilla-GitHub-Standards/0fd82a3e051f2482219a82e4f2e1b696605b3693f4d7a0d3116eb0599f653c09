@@ -52,7 +52,6 @@ you should <a href='/'>return to the front page.</a><br><br><div class='small'>%
     try:
       credentials = simplejson.loads(credentials_json)
     except:
-      import pdb; pdb.set_trace()
       raise Exception("bad credentials -- JSON")
       
     return user_id, credentials
@@ -200,17 +199,34 @@ class GetPhotoSizes(WebHandler):
 class PostPhoto(WebHandler):
   @tornado.web.asynchronous
   def post(self):
-    photo = self.get_argument("photo") #base64ed?
+    user_id, credentials = self.get_user_id_and_credentials()
+
+    photo = self.get_argument("photo", None) #base64ed?
+    photo_url = self.get_argument("photo_url", None) #base64ed?
     title = self.get_argument("title", None)
     description = self.get_argument("description", None)
     tags = self.get_argument("tags", None) # space-separated
     
-    user_id, credentials = self.get_user_id_and_credentials()
+    # did we get a photo_url instead?
+    if not photo and not photo_url:
+      raise Exception("no photo")
 
-    photosite.store_photo(user_id, credentials, photo, title, description, tags,
-                          on_success= self.on_success,
-                          on_error= self.on_error)
+    if photo and photo_url:
+      raise Exception("only submit photo or photo_url")
+
+    def do_it(photo_data):
+      photosite.store_photo(user_id, credentials, photo_data, title, description, tags,
+                            on_success= self.on_success,
+                            on_error= self.on_error)
     
+    if photo_url:
+      # we have to go fetch it
+      http = tornado.httpclient.AsyncHTTPClient()
+      
+      # assume success for now
+      http.fetch(photo_url, callback=lambda response: do_it(base64.b64encode(response.body)))
+    else:
+      do_it(photo)
 
   def on_success(self, response_xml):
     self.write(response_xml)
