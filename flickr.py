@@ -15,6 +15,8 @@ import base64
 
 import utils
 
+from xml.etree import ElementTree
+
 def _sign_request(request):
     "now returns the full set of parameters ready for URL embedding"
 
@@ -205,7 +207,7 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
     http = tornado.httpclient.AsyncHTTPClient()
     http.fetch(url, callback=on_response)
 
-def store_photo(user_id, credentials, photo, title, description, tags, on_success, on_error):
+def store_photo(user_id, credentials, photoset_id, photo, title, description, tags, on_success, on_error):
     photoFile = cStringIO.StringIO(base64.b64decode(photo))
 
     request = {
@@ -233,8 +235,44 @@ def store_photo(user_id, credentials, photo, title, description, tags, on_succes
         if response.error:
             on_error(response.error)
             return
-        
-        on_success(response.body)
+
+        # parse the response
+        photo_id = ElementTree.fromstring(response.body).findtext("photoid")
+
+        # add the photo to the gallery
+        ## if photoset_id:
+        # FIXME: the photoset_id is somehow not the *compound* gallery ID that flickr needs here
+        # why are we not getting this? That's so broken.
+        if False:
+            request = {
+                "auth_token": credentials,
+                "method": "flickr.galleries.addPhoto",
+                "gallery_id": photoset_id,
+                "photo_id": photo_id
+                }
+
+            body = _sign_request_url_only(request)
+            
+            httpRequest = tornado.httpclient.HTTPRequest(
+                "http://api.flickr.com/services/rest/",
+                method = "POST",
+                body = body
+                )
+
+            def really_done(response):
+                import pdb; pdb.set_trace()
+                if response.error:
+                    on_error(response.error)
+                    return
+
+                on_success(response.body)
+
+            import pdb; pdb.set_trace()
+                
+            http = tornado.httpclient.AsyncHTTPClient()      
+            http.fetch(httpRequest, callback=really_done)
+        else:
+            on_success(response.body)
 
     http = tornado.httpclient.AsyncHTTPClient()      
     http.fetch(httpRequest, callback=on_response)

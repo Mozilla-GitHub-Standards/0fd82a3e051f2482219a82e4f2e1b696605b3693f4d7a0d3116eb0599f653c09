@@ -8,9 +8,30 @@
 <script>
 
 var gRequestArguments = null;
+var photosets = null;
+
+$(document).ready(function() {
+  loadPhotoSets(function(ps) {
+    photosets = ps;
+    $(photosets).each(function(i, photoset) {
+      $('#photoset_dropdown').append($('<option>' + photoset.name + '</option>').attr('value',photoset.id));
+    });
+  });
+});
 
 // XX need some way to message up to UA that "Okay" should be enabled
 chan = Channel.build({window: window.parent, origin: "*", scope: "openwebapps_conduit"});
+
+function load(url, args, cb) {
+    args.user_id = window.localStorage.getItem("user_id");
+    args.credentials = window.localStorage.getItem("credentials");
+    $.getJSON(url, args, cb);
+}
+
+function loadPhotoSets(cb)
+{
+  load("/get/photosets", {}, cb);
+}
 
 chan.bind("image.send", function(t, args) {
   try {
@@ -46,6 +67,7 @@ chan.bind("confirm", function(t, args) {
   call.title = $("#title").val();
   call.description = $("#description").val();
   call.tags = $("#tags").val();
+  call.photoset_id = $("#photoset_dropdown").val();
 
   $("status_msg").text("Saving photo...");
   savePhoto(call, function() {
@@ -87,9 +109,6 @@ function renderPreview()
   if (gRequestArguments.tags) $("#tags").val(gRequestArguments.tags);
 }
 
-function init() {
-
-}
 
 </script>
 <style>
@@ -179,7 +198,7 @@ button:active {
 
 </style>
 </head>
-<body onload="init()">
+<body>
 
 <div id="preview_box">
   <img id="preview" />
@@ -201,6 +220,11 @@ button:active {
     <input class="value" type="text" id="tags">
   </div>
 
+  <div class="row">
+    <div class="label">Photoset</div>
+    <select name="photoset_id" id="photoset_dropdown">
+    </select>
+  </div>
     
 </div>
 

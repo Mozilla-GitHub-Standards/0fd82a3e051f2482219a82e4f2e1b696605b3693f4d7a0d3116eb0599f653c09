@@ -198,7 +198,7 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
                     on_success = internal_on_success,
                     on_error = lambda content: on_error("couldn't get photos: %s" % content))
 
-def store_photo(user_id, credentials, photo, title, description, tags, on_success, on_error):
+def store_photo(user_id, credentials, photoset_id, photo, title, description, tags, on_success, on_error):
     """
     this will call on_success with a dictionary of the new image,
     including 'id' and 'url'
@@ -211,11 +211,10 @@ def store_photo(user_id, credentials, photo, title, description, tags, on_succes
     def internal_on_error(error):
         on_error("couldn't upload image: %s" % error)
 
-    def after_fetch_photosets(photosets):
-        # prepare a multipart-mime message
+    # prepare a multipart-mime message
         
-        # first the Atom description (FIXME: XML inline is kinda ugly)
-        metadata = """
+    # first the Atom description (FIXME: XML inline is kinda ugly)
+    metadata = """
 <entry xmlns='http://www.w3.org/2005/Atom'>
   <title>%s</title>
   <summary>%s</summary>
@@ -224,38 +223,33 @@ def store_photo(user_id, credentials, photo, title, description, tags, on_succes
 </entry>
 """ % (xml_escape(title), xml_escape(description))
 
-        # treat the photo as a file
-        photo_file = cStringIO.StringIO(base64.b64decode(photo))
+    # treat the photo as a file
+    photo_file = cStringIO.StringIO(base64.b64decode(photo))
 
-        boundary, body = utils.multipart_encode(
-            vars={},
-            vars_with_types= [("application/atom+xml", metadata)],
-            files= [("photo", "thefile.jpg", photo_file, "image/jpg")]
-            )
+    boundary, body = utils.multipart_encode(
+        vars={},
+        vars_with_types= [("application/atom+xml", metadata)],
+        files= [("photo", "thefile.jpg", photo_file, "image/jpg")]
+        )
 
-        # prepend a bogus line, as per picasa spec (is this MIME?)
-        full_body = """
+    # prepend a bogus line, as per picasa spec (is this MIME?)
+    full_body = """
 Media multipart posting
 %s""" % body
 
-        headers = { "Content-Type": "multipart/related; boundary=" + boundary,
-                    "Content-Length": str(len(full_body)),
-                    "MIME-Version": "1.0",}
+    headers = { "Content-Type": "multipart/related; boundary=" + boundary,
+                "Content-Length": str(len(full_body)),
+                "MIME-Version": "1.0",}
 
-        _signed_request("POST",
-                        "https://picasaweb.google.com/data/feed/api/user/default/albumid/%s" % photosets[0]['id'],
-                        params=full_body,
-                        oauth_extra_params = None,
-                        credentials = credentials,
-                        on_success = internal_on_success,
-                        on_error = internal_on_error,
-                        headers = headers)
+    _signed_request("POST",
+                    "https://picasaweb.google.com/data/feed/api/user/default/albumid/%s" % photoset_id,
+                    params=full_body,
+                    oauth_extra_params = None,
+                    credentials = credentials,
+                    on_success = internal_on_success,
+                    on_error = internal_on_error,
+                    headers = headers)
         
-    # for now we'll store in the first album
-    # FIXME: we should refactor this
-    get_photosets(user_id, credentials,
-                  on_success= after_fetch_photosets,
-                  on_error= lambda content: on_error("couldn't get photosets to upload image"))
 
 
     

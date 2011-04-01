@@ -187,7 +187,7 @@ def get_photos(user_id, credentials, photoset_id, on_success, on_error):
                     on_error = lambda content: on_error("couldn't get photos: %s" % content))
 
 
-def store_photo(user_id, credentials, photo, title, description, tags, on_success, on_error):
+def store_photo(user_id, credentials, photoset_id, photo, title, description, tags, on_success, on_error):
     """
     this will call on_success with a dictionary of the new image,
     including 'id' and 'url'
@@ -198,22 +198,16 @@ def store_photo(user_id, credentials, photo, title, description, tags, on_succes
         on_success({'id': result['Image']['id'],
                     'url': result['Image']['URL']})
 
-    def after_fetch_photosets(photosets):
-        _signed_request("POST",API_BASE, params= {'method': "smugmug.images.upload",
-                                                  'Data': photo,
-                                                  'AlbumID': photosets[0]['id'].split("/")[0],
-                                                  'Caption': title or '',
-                                                  'Keywords': tags or ''},
-                        oauth_extra_params = None,
-                        credentials = credentials,
-                        on_success = internal_on_success,
-                        on_error = lambda content: on_error("couldn't upload image"))
+    _signed_request("POST",API_BASE, params= {'method': "smugmug.images.upload",
+                                              'Data': photo,
+                                              'AlbumID': photoset_id.split("/")[0],
+                                              'Caption': title or '',
+                                              'Keywords': tags or ''},
+                    oauth_extra_params = None,
+                    credentials = credentials,
+                    on_success = internal_on_success,
+                    on_error = lambda content: on_error("couldn't upload image"))
         
-    # for now we'll store in the first album
-    # FIXME: we should refactor this
-    get_photosets(user_id, credentials,
-                  on_success= after_fetch_photosets,
-                  on_error= lambda content: on_error("couldn't get photosets to upload image"))
 
 
     

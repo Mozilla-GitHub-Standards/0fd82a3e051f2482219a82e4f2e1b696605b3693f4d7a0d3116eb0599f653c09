@@ -142,7 +142,7 @@ class Photosets(WebHandler):
 
   def on_error(self, message):
     import logging
-    logging.log("error: %s" % message)
+    logging.error("error: %s" % message)
     self.write("error: %s" % message)
     self.finish()
 
@@ -214,19 +214,31 @@ class PostPhoto(WebHandler):
     if photo and photo_url:
       raise Exception("only submit photo or photo_url")
 
-    def do_it(photo_data):
-      photosite.store_photo(user_id, credentials, photo_data, title, description, tags,
+    def do_it(photoset_id, photo_data):
+      photosite.store_photo(user_id, credentials, photoset_id,
+                            photo_data, title, description, tags,
                             on_success= self.on_success,
                             on_error= self.on_error)
     
+    def get_photoset_id(photo_data):
+      photoset_id = self.get_argument("photoset_id", None)
+
+      if photoset_id:
+        do_it(photoset_id, photo_data)
+      else:
+        # go get the first photoset
+        photosite.get_photosets(user_id, credentials,
+                                on_success= lambda photosets: do_it(photo_data, photosets[0]['id']),
+                                on_error= lambda content: on_error("couldn't get photosets to upload image"))
+
     if photo_url:
       # we have to go fetch it
       http = tornado.httpclient.AsyncHTTPClient()
       
       # assume success for now
-      http.fetch(photo_url, callback=lambda response: do_it(base64.b64encode(response.body)))
+      http.fetch(photo_url, callback=lambda response: get_photoset_id(base64.b64encode(response.body)))
     else:
-      do_it(photo)
+      get_photoset_id(photo)
 
   def on_success(self, response_xml):
     self.write(response_xml)
