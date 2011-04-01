@@ -209,7 +209,6 @@ def store_photo(user_id, credentials, photo, title, description, tags, on_succes
         on_success(content)
     
     def internal_on_error(error):
-        import pdb; pdb.set_trace()
         on_error("couldn't upload image: %s" % error)
 
     def after_fetch_photosets(photosets):
