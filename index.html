@@ -12,8 +12,7 @@ function disconnect() {
 //  window.localStorage.setItem("full_name", null);
 //  window.localStorage.setItem("credentials", null);
   window.localStorage.clear();
-  $("#connected").hide();
-  $("#notconnected").show();
+  init();
 }
 
 function get_credentials() {
@@ -28,9 +27,11 @@ function get_credentials() {
   }
 }
 
-function is_connected(cb) {
-  if (!get_credentials())
+function is_installed(cb) {
+  if (!get_credentials()) {
     cb(false);
+    return;
+  }
 
   // is the app installed
   navigator.apps.amInstalled(cb);
@@ -38,11 +39,13 @@ function is_connected(cb) {
 
 
 function init() {
-  is_connected(function(connected_p) {
-    if (connected_p) {
+  is_installed(function(installed_p) {
+    if (installed_p) {
       $("#notinstalled").hide();
+      $("#installed").show();
     } else {
       $("#installed").hide();
+      $("#notinstalled").show();
     }
   });
 }
