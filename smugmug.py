@@ -74,7 +74,7 @@ def generate_authorize_url(web_handler, url_callback, on_success, on_error):
                                    urllib.urlencode({
                     'oauth_token':request_token['oauth_token'],
                     'Access':'Full',
-                    'Permissions':'Modify'}))
+                    'Permissions':'Add'}))
         on_success(request_token, authorize_url)
 
     _signed_request("GET", url=REQUEST_TOKEN_URL, params=None,
