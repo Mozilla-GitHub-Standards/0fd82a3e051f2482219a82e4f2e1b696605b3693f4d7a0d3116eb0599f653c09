@@ -142,6 +142,8 @@ class Photosets(WebHandler):
     self.finish()
 
   def on_error(self, message):
+    import logging
+    logging.log("error: %s" % message)
     self.write("error: %s" % message)
     self.finish()
 
